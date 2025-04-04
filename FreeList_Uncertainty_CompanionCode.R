@@ -1486,7 +1486,7 @@ quantile(S_post_ordBeta.diff_ratio, c(0.025, 0.5, 0.975))
 
 
 ###########################################################################
-#### Example of applying methods above to free-list metrics other than Smith's S - Here focusing on Jaccard's similarity and conceptual overlap (note that the data, code and example have been adapted here from Purzycki's 'Ethnographic Free-list Data' book, chapter 4 - For the original code, see https://github.com/bgpurzycki/free-list_QASS)
+#### Example of applying methods above to free-list metrics other than Smith's S - First focusing on Jaccard's similarity and conceptual overlap (note that the data, code and example have been adapted here from Purzycki's 'Ethnographic Free-list Data' book, chapter 4 - For the original code, see https://github.com/bgpurzycki/free-list_QASS)
 
 ## Install and load the 'eulerr' package
 #install.packages("eulerr")
@@ -1698,3 +1698,284 @@ quantile(Jac_logit_LGvsPOL, c(0.025, 0.5, 0.975)) # Logistic MLM
 
 # In this example, the logistic MLM performs okay, but bootstrapping does appear more accurate/less biased
 
+
+
+#################
+#### Further example of applying methods above to free-list metrics other than Smith's S - Now focusing on Cultural FST and the partitioning of variance between vs within societies (as above, note that the data, code and example have been adapted here from Purzycki's 'Ethnographic Free-list Data' book, chapter 4 - For the original code, see https://github.com/bgpurzycki/free-list_QASS)
+
+## Read in the data
+dat_fst <- read.csv("Cross-cultural_ERM1.csv", sep = ";")
+
+# This dataset is of data from the Evolution of Religion and Morality (ERM) project. Here, we're only interested in free-list on what moralising gods dislike, so will make a presence/absence matrix of all categories from this question.
+dat_fst_pres <- FreeListTable(dat_fst, CODE = "BGD", Order = "Order", 
+                              Subj = "CERCID", tableType = "PRESENCE", 
+                              GROUPING = "Culture")
+head(dat_fst_pres)
+
+# Exclude data if participant did not respond to this question
+dat_fst_pres$freq <- rowSums(dat_fst_pres[,3:12])
+dat_fst_pres <- dat_fst_pres[dat_fst_pres$freq != 0, ]  
+
+# Keep just morality item
+dat_fst_pres <- dat_fst_pres[, c("Subject", "Group", "Morality")]
+head(dat_fst_pres)
+
+
+## Function to calculate FST between two societies
+FST <- function(ni, nj, xi, xj){ 
+  pi <- xi/ni
+  pj <- xj/nj
+  pbar <- (xi + xj)/(ni + nj)
+  num <- (ni/(ni + nj))*(pi - pbar)^2 + (nj/(ni + nj))*(pj - pbar)^2
+  denom <- pbar*(1 - pbar)
+  FST <- num/denom
+  return(FST)
+}
+
+## Function to loop over multiple societies and create matrix of cultural FST estimates (based on summary table of data)
+fstmatrix <- function(tslab, matrixtype = NULL) {
+  m <- matrix(NA, nrow = nrow(tslab), ncol = nrow(tslab))
+  rownames(m) <- colnames(m) <- rownames(tslab)
+  for(i in 1:nrow(m)) {
+    for(j in 1:ncol(m)) {
+      m[i, j] <- FST(tslab[i, 1], tslab[j, 1], tslab[i, 2], tslab[j, 2])   
+    }
+  }
+  if(!is.null(matrixtype)) {
+    if(matrixtype == "upper") {
+      m[lower.tri(m)] <- 0
+    }
+    if(matrixtype == "lower") {
+      m[upper.tri(m)] <- 0
+    }
+  }
+  return(m)
+}
+
+# Table summarising morality data for these societies
+mortab <- table(dat_fst_pres$Morality, dat_fst_pres$Group)
+mortab1 <- mortab[2,]
+size <- colSums(mortab)
+slab <- (as.data.frame(rbind(size, mortab1)))
+tslab <- as.data.frame(t(slab))
+tslab
+
+# Matrix of cultural FST estimates, based on this summary table
+fstmatrix(tslab)
+
+
+#### Methods to propagate uncertainty 
+
+### First, bootstrapping
+
+## Function to generate bootstrap samples across a range of groups/societies
+FST_boot_sampling <- function(data, group_var, target_var, iterations = 1000, seed) {
+  
+  # Set seed and list to store results in
+  set.seed(seed)
+  res_list <- list()
+  
+  for (i in 1:length(unique(data[[group_var]]))) {
+    
+    # Take each group in turn
+    var <- unique(data[[group_var]])[i]
+    dat_temp <- data[data[[group_var]] == var, ]
+    
+    print(paste0("On group ", i, ": ", var))
+    
+    # Perform bootstrapping on each site and store total number of times target mentioned
+    boot_temp <- rep(NA, iterations)
+    
+    for (j in 1:iterations) {
+      boot <- sample(dat_temp[[target_var]], size = nrow(dat_temp), replace = TRUE)
+      boot_temp[j] <- sum(boot)
+    }
+    
+    res_list[[i]] <- boot_temp
+    names(res_list)[i] <- var
+  }
+  return(res_list)
+}
+
+# Run this function to generate estimates of the numbers of individuals selecting 'Morality' in each society
+boot_samples <- FST_boot_sampling(data = dat_fst_pres, group_var = "Group", target_var = "Morality", iteration = 1000, seed = 123)
+str(boot_samples)
+
+
+## Function to calculate cultural FST between all groups, across these bootstrapped samples
+fst_uncert <- function(dat_list, orig_data, group_var) {
+  
+  # List to store results in
+  res_list <- list()
+  
+  # Keep a counter of number of FST calculations/lists to create
+  counter <- 0
+  
+  # Loop over all combinations of groups (skipping if same group)
+  for (i in 1:length(names(dat_list))) {
+    
+    var_i <- names(dat_list)[i]
+    
+    for (j in 1:length(names(dat_list))) {
+      
+      var_j <- names(dat_list)[j]
+      
+      # Skip if same pairing
+      if (var_i == var_j) next
+      
+      print(paste0("On variables ", i, ": ", var_i, " and ", j, ": ", var_j))
+      
+      # Vector to store results in
+      fst_temp <- rep(NA, length(dat_list[[var_i]]))
+      
+      # Calculate FST in each sample
+      for (k in 1:length(dat_list[[var_i]])) {
+        fst_temp[k] <- FST(ni = nrow(orig_data[orig_data[[group_var]] == var_i, ]), 
+                           nj = nrow(orig_data[orig_data[[group_var]] == var_j, ]), 
+                           xi = dat_list[[var_i]][k], 
+                           xj = dat_list[[var_j]][k])
+      }
+      
+      counter <- counter + 1
+      
+      # Store results in list
+      res_list[[counter]] <- fst_temp
+      names(res_list)[counter] <- paste0(var_i, "X", var_j)
+    }
+  }
+  return(res_list)
+}
+
+# Run this function to calculate FST estimates
+fst_boot <- fst_uncert(dat_list = boot_samples, orig_data = dat_fst_pres, group_var = "Group")
+str(fst_boot)
+
+# Summarise cultural FST for all societies
+(fst_res <- round(t(as.data.frame(lapply(fst_boot, quantile, probs = c(0.025, 0.5, 0.975)))), 2))
+
+# Put median Cultural FST estimates in a matrix (adapting Ben's earlier 'fstmatrix' function)
+fstmatrix_uncert <- function(dat_res, dat_list, est = "50%", lower_quant = "2.5%", upper_quant = "97.5%", matrixtype = NULL) {
+  
+  # Extract variable names and re-convert '.'s back to spaces
+  names <- names(dat_list)
+  names <- gsub(" ", ".", names)
+  
+  # Populate matrix with cultural FST estimates, and uncertainty intervals
+  m <- matrix(NA, nrow = length(names(dat_list)), ncol = length(names(dat_list)))
+  rownames(m) <- colnames(m) <- names(dat_list)
+  for(i in 1:nrow(m)) {
+    for(j in 1:ncol(m)) {
+      if (i == j) {
+        m[i, j] <- NA
+      } else if (i != j) {
+        target <- paste0(names[i], "X", names[j])
+        m[i, j] <- paste0(as.data.frame(dat_res)[[est]][rownames(dat_res) == target], " [",
+                          as.data.frame(dat_res)[[lower_quant]][rownames(dat_res) == target], "-",
+                          as.data.frame(dat_res)[[upper_quant]][rownames(dat_res) == target], "]")
+      }
+    }
+  }
+  if(!is.null(matrixtype)) {
+    if(matrixtype == "upper") {
+      m[lower.tri(m)] <- 0
+    }
+    if(matrixtype == "lower") {
+      m[upper.tri(m)] <- 0
+    }
+  }
+  return(m)
+}
+
+# FST matrices for different uncertainty intervals (2.5%, median/50% and 97.5%)
+(fstmat <- fstmatrix_uncert(dat_res = fst_res, dat_list = boot_samples, 
+                            est = "50%", lower_quant = "2.5%", upper_quant = "97.5%"))
+
+
+### Alternative method using Bayesian logistic regression model (using 'brms'), followed by sampling posterios predictions for each group
+
+# Note the '0 +' notation to exclude the traditional intercept and include use 'index' notation to estimate intercept separately for all levels of 'Group' (not just relative to a reference)
+logit_moral <- brm(formula = bf(Morality ~ 0 + Group),
+                   data = dat_fst_pres,
+                   chains = 4, iter = 2000, warmup = 1000, cores = 4, seed = 12321,
+                   family = bernoulli())
+
+summary(logit_moral)
+
+# Posterior predictions for each group
+post_moral <- predict(logit_moral, newdata = as.data.frame(cbind(Group = dat_fst_pres$Group)), summary = FALSE)
+head(post_moral)
+
+# Hive these off into separate vectors in a list (so same structure as the bootstrapping output)
+post_byGroup <- function(post_data, orig_data, group_var) {
+  
+  # Create a list to store results in
+  dat_list <- list()
+  
+  # Loop over each group/society and extract posterior predictions, summarising total number within each group
+  for (i in 1:length(unique(orig_data[[group_var]]))) {
+    temp <- rep(NA, nrow(post_data))
+    var <- unique(orig_data[[group_var]])[i]
+    for (j in 1:nrow(post_data)) {
+      temp[j] <- sum(post_data[j, ][orig_data[[group_var]] == var])
+    }
+    dat_list[[i]] <- temp
+    names(dat_list)[i] <- var
+  }
+  return(dat_list)
+}
+
+# Run this function to split by group
+post_list <- post_byGroup(post_data = post_moral, orig_data = dat_fst_pres, group_var = "Group")
+str(post_list)
+
+# Use 'fst_uncert' function above to calculate cultural FST between each group
+fst_logit <- fst_uncert(dat_list = post_list, orig_data = dat_fst_pres, group_var = "Group")
+str(fst_logit)
+
+# Summarise cultural FST
+(fst_res_logit <- round(t(as.data.frame(lapply(fst_logit, quantile, probs = c(0.025, 0.5, 0.975)))), 2))
+
+# Summarise cultural FST in a matrix with uncertainty intervals
+(fstmat_logit <- fstmatrix_uncert(dat_res = fst_res_logit, dat_list = post_list, 
+                                  est = "50%", lower_quant = "2.5%", upper_quant = "97.5%"))
+
+# Essentially the same results as with bootstrapping, but with wider uncertainty intervals
+fstmat
+
+
+### Alternative method using group/society as a random effect
+logit_moral_re <- brm(formula = bf(Morality ~ 1 + (1 | Group)),
+                      data = dat_fst_pres,
+                      chains = 4, iter = 2000, warmup = 1000, cores = 4, seed = 12321,
+                      family = bernoulli())
+
+summary(logit_moral_re)
+
+# Posterior predictions for each group
+post_moral_re <- predict(logit_moral_re, newdata = as.data.frame(cbind(Group = dat_fst_pres$Group)), summary = FALSE)
+head(post_moral_re)
+
+# Run function to split posterior predictions by group
+post_list_re <- post_byGroup(post_data = post_moral_re, orig_data = dat_fst_pres, group_var = "Group")
+str(post_list_re)
+
+# Use 'fst_uncert' function above to calculate cultural FST between each group
+fst_logit_re <- fst_uncert(dat_list = post_list_re, orig_data = dat_fst_pres, group_var = "Group")
+str(fst_logit_re)
+
+# Summarise cultural FST
+(fst_res_logit_re <- round(t(as.data.frame(lapply(fst_logit_re, quantile, probs = c(0.025, 0.5, 0.975)))), 2))
+
+# Summarise cultural FST in a matrix with uncertainty intervals
+(fstmat_logit_re <- fstmatrix_uncert(dat_res = fst_res_logit_re, dat_list = post_list_re, 
+                                     est = "50%", lower_quant = "2.5%", upper_quant = "97.5%"))
+
+# Compare with bootstrapping and fixed effects regression model
+fstmat_logit
+fstmat
+
+# Again, broadly similar results to both (albeit with wider uncertainty intervals than bootstrapping again) - However, compared to bootstrapping and groups as fixed effects, in the random effects model some of the cultural FST estimates are closer to the null (e.g., for Coastal vs Inland Tanna cultural FST = 0.33 for bootstrapping and fixed effect model, but 0.28 for random effects model); Is because multi-level models are pooling/regularising, thus weakening the impact of more extreme values. Can see this when looking at the predictions from the random effects model, as the estimates are less extreme for the samples with more and fewer people listing 'Morality' (e.g., in Coastal Tanna 41/42 participants listed 'Morality'; in the bootstrap and fixed effects samples the median value was also 41, while in the random effects posterior sample it was 40 [with lower mean and minimum estimates as well]).
+tslab
+lapply(boot_samples, summary)
+lapply(post_list, summary)
+lapply(post_list_re, summary)
