@@ -1762,7 +1762,7 @@ fst_uncert <- function(dat_list, orig_data, group_var) {
       
       # Store results in list
       res_list[[counter]] <- fst_temp
-      names(res_list)[counter] <- paste0(var_i, "X", var_j)
+      names(res_list)[counter] <- paste0(var_i, "X_X", var_j)
     }
   }
   return(res_list)
@@ -1773,27 +1773,29 @@ fst_boot <- fst_uncert(dat_list = boot_samples, orig_data = dat_fst_pres, group_
 str(fst_boot)
 
 # Summarise cultural FST for all societies
-(fst_res <- round(t(as.data.frame(lapply(fst_boot, quantile, probs = c(0.025, 0.5, 0.975)))), 2))
+(fst_res <- round(t(as.data.frame(lapply(fst_boot, quantile, probs = c(0.025, 0.5, 0.975)), check.names = FALSE)), 2))
 
 # Put median Cultural FST estimates in a matrix (adapting Ben's earlier 'fstmatrix' function)
 fstmatrix_uncert <- function(dat_res, dat_list, est = "50%", lower_quant = "2.5%", upper_quant = "97.5%", matrixtype = NULL) {
   
-  # Extract variable names and re-convert '.'s back to spaces
+  # Extract variable names
   names <- names(dat_list)
-  names <- gsub(" ", ".", names)
   
   # Populate matrix with cultural FST estimates, and uncertainty intervals
-  m <- matrix(NA, nrow = length(names(dat_list)), ncol = length(names(dat_list)))
-  rownames(m) <- colnames(m) <- names(dat_list)
+  m <- matrix(NA, nrow = length(names), ncol = length(names))
+  rownames(m) <- colnames(m) <- names
   for(i in 1:nrow(m)) {
     for(j in 1:ncol(m)) {
       if (i == j) {
         m[i, j] <- NA
       } else if (i != j) {
-        target <- paste0(names[i], "X", names[j])
-        m[i, j] <- paste0(as.data.frame(dat_res)[[est]][rownames(dat_res) == target], " [",
-                          as.data.frame(dat_res)[[lower_quant]][rownames(dat_res) == target], "-",
-                          as.data.frame(dat_res)[[upper_quant]][rownames(dat_res) == target], "]")
+        target <- paste0(names[i], "X_X", names[j])
+        m[i, j] <- paste0(format(as.data.frame(dat_res)[[est]][rownames(dat_res) == target], nsmall = 2), 
+                          " [",
+                          format(as.data.frame(dat_res)[[lower_quant]][rownames(dat_res) == target], nsmall = 2), 
+                          "-",
+                          format(as.data.frame(dat_res)[[upper_quant]][rownames(dat_res) == target], nsmall = 2), 
+                          "]")
       }
     }
   }
@@ -1854,7 +1856,8 @@ fst_logit <- fst_uncert(dat_list = post_list, orig_data = dat_fst_pres, group_va
 str(fst_logit)
 
 # Summarise cultural FST
-(fst_res_logit <- round(t(as.data.frame(lapply(fst_logit, quantile, probs = c(0.025, 0.5, 0.975)))), 2))
+(fst_res_logit <- round(t(as.data.frame(lapply(fst_logit, quantile, probs = c(0.025, 0.5, 0.975)), 
+                                        check.names = FALSE)), 2))
 
 # Summarise cultural FST in a matrix with uncertainty intervals
 (fstmat_logit <- fstmatrix_uncert(dat_res = fst_res_logit, dat_list = post_list, 
@@ -1884,7 +1887,8 @@ fst_logit_re <- fst_uncert(dat_list = post_list_re, orig_data = dat_fst_pres, gr
 str(fst_logit_re)
 
 # Summarise cultural FST
-(fst_res_logit_re <- round(t(as.data.frame(lapply(fst_logit_re, quantile, probs = c(0.025, 0.5, 0.975)))), 2))
+(fst_res_logit_re <- round(t(as.data.frame(lapply(fst_logit_re, quantile, probs = c(0.025, 0.5, 0.975)), 
+                                           check.names = FALSE)), 2))
 
 # Summarise cultural FST in a matrix with uncertainty intervals
 (fstmat_logit_re <- fstmatrix_uncert(dat_res = fst_res_logit_re, dat_list = post_list_re, 
