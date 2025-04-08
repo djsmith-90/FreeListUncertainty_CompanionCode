@@ -1,7 +1,6 @@
 ### Companion code for 'Modelling uncertainty around free-list cultural salience scores'
-### Created by Dan Major-Smith & Ben Purzycki
+### Created by Dan Major-Smith & Benjamin Grant Purzycki
 ### R Version 4.4.1
-
 
 ####################################################################
 ### Clear workspace, set working directory and install/load packages
@@ -9,6 +8,7 @@ rm(list=ls())
 Sys.setenv(LANG = "en")
 
 #setwd("C:/Users/au776065/Dropbox/Major-Smith-Purzycki Shared/Projects/FreeListUncertainty")
+#setwd("~/Dropbox/7. IR Lab/Major-Smith-Purzycki Shared/Projects/FreeListUncertainty")
 setwd("")
 
 #install.packages("devtools")
@@ -29,6 +29,8 @@ library(tidyverse)
 #install.packages("ggdist")
 library(ggdist)
 
+#install.packages("eulerr")
+library(eulerr)
 
 ###################################################################
 ### Read in Tyvan Virtues/Morality data
@@ -65,8 +67,6 @@ FL.sal0 <- FreeListTable(FL.sal,
                          Salience = "GC.S",
                          tableType = "MAX_SALIENCE")
 
-
-
 ### To begin with, we'll use 'hard-working' as an example trait to demonstrate these methods
 
 # For ease, remove dash from 'hard-working' variable name
@@ -82,12 +82,10 @@ S[S$CODE == "hard-working", ]
 hist(FL.sal0$hardworking, main = "", xlab = "Item salience for 'hard-working'",
      cex.axis = 1.2, cex.lab = 1.5)
 
-pdf(file = "./FL Uncertainty/hardworking_hist.pdf")
+pdf(file = "hardworking_hist.pdf")
 hist(FL.sal0$hardworking, main = "", xlab = "Item salience for 'hard-working'",
      cex.axis = 1.2, cex.lab = 1.5)
 dev.off()
-
-
 
 ## Comparing different methods for propagating uncertainty in Smith's S estimates
 
@@ -105,7 +103,6 @@ head(S_boot)
 
 # Smith's S 95% percentile interval
 quantile(S_boot, c(0.025, 0.5, 0.975))
-
 
 # Linear model (default non-informative priors - 'student_t(3, 0, 2.5)' for both intercept and sigma terms, but with a lower bound of 0 for the sigma term)
 linear_mod <- brm(formula = bf(
@@ -147,8 +144,6 @@ for (i in 1:ncol(samples_linear_freq)) {
 
 quantile(S_linear_freq, c(0.025, 0.5, 0.975))
 
-
-
 # ZOIB model (default non-informative priors; 'student_t(3, 0, 2.5)' for mean and phi, 'logistic(0, 1)' for zoi and coi)
 zoib_mod <- brm(formula = bf(
   hardworking ~ 1, # Mean of beta distribution if between 0 and 1 (on logit scale)
@@ -174,7 +169,6 @@ for (i in 1:nrow(post_zoib)) {
 }
 
 quantile(S_post_zoib, c(0.025, 0.5, 0.975))
-
 
 # Ordered Beta (default non-informative priors, where possible; 'student_t(3, 0, 2.5)' for mean and phi terms [note that if include a phi intercept model, have to manually specify a prior], flat for cut-points)
 ordBeta_mod <- ordbetareg(
@@ -202,11 +196,9 @@ for (i in 1:nrow(post_ordBeta)) {
 
 quantile(S_post_ordBeta, c(0.025, 0.5, 0.975))
 
-
-
 ## Plot 50 predicted densities on top of observed density (plus bootstrapping)
 
-pdf(file = "./FL Uncertainty/bootLinearZOIBOrdered.pdf", height = 12, width = 5)
+pdf(file = "bootLinearZOIBOrdered.pdf", height = 12, width = 5)
 
 # Four panel plot
 par(mfrow = c(4, 1), mai = c(0.3, 0.5, 0.3, 0.5))
@@ -241,7 +233,6 @@ for (i in 1:50) {
 
 dev.off()
 
-
 ## Plot comparing densities of bootstrap, ZOIB and ordered Beta results
 par(mar = c(3, 5, 1, 2))
 
@@ -257,7 +248,7 @@ legend("topright", legend = c("Bootstrap", "ZOIB", "Ordered Beta"),
        pch = 15, pt.cex = 2)
 
 # Save plot
-pdf(file = "./FL Uncertainty/hardworking_comparison.pdf", height = 4, width = 6)
+pdf(file = "hardworking_comparison.pdf", height = 4, width = 6)
 
 par(mar = c(3, 5, 1, 2))
 
@@ -274,8 +265,7 @@ legend("topright", legend = c("Bootstrap", "ZOIB", "Ordered Beta"),
 
 dev.off()
 
-
-
+####################################################################
 ## Comparison of results if using more informative priors
 
 # Linear model (We know that the mean item salience/Smith's S will be between 0 and 1, so use a normally-distributed prior for this centred on 0.5 with an SD of 0.5. Use an exponential distribution for the sigma term)
@@ -303,7 +293,6 @@ for (i in 1:nrow(post_linear_prior)) {
 
 quantile(S_post_linear_prior, c(0.025, 0.5, 0.975))
 quantile(S_post_linear, c(0.025, 0.5, 0.975))
-
 
 # ZOIB model (specify tighter priors, centered on 0 with an SD of 1.5 for logit terms [beta mean, zoi and coi], and 0 and SD of 1 for log terms [phi])
 get_prior(zoib_mod)
@@ -336,7 +325,6 @@ for (i in 1:nrow(post_zoib_prior)) {
 quantile(S_post_zoib_prior, c(0.025, 0.5, 0.975))
 quantile(S_post_zoib, c(0.025, 0.5, 0.975))
 
-
 # Ordered Beta (specify tighter priors, centered on 0 with an SD of 1.5 for logit terms [beta mean, and the two cut-points], and 0 and SD of 1 for log terms [phi])
 get_prior(ordBeta_mod)
 
@@ -367,8 +355,7 @@ for (i in 1:nrow(post_ordBeta_prior)) {
 quantile(S_post_ordBeta_prior, c(0.025, 0.5, 0.975))
 quantile(S_post_ordBeta, c(0.025, 0.5, 0.975))
 
-
-
+####################################################################
 ### Comparing bootstrap, linear, ZOIB and ordered Beta in a variable with nearly 0 cultural salience (to demonstrate how linear models can give nonsensical results in edge cases like this)
 summary(FL.sal0)
 
@@ -388,7 +375,6 @@ for (i in 1:1000) {
 
 summary(S_boot)
 quantile(S_boot, c(0.025, 0.5, 0.975))
-
 
 # Linear model
 linear_mod <- brm(formula = bf(
@@ -411,7 +397,6 @@ for (i in 1:nrow(post_linear)) {
 summary(S_post_linear)
 quantile(S_post_linear, c(0.025, 0.5, 0.975))
 
-
 # Frequentist linear model
 linear_mod_freq <- lm(talented ~ 1, data = FL.sal0)
 summary(linear_mod_freq)
@@ -428,7 +413,6 @@ for (i in 1:ncol(samples_linear_freq)) {
 
 summary(S_linear_freq)
 quantile(S_linear_freq, c(0.025, 0.5, 0.975))
-
 
 # ZOIB model
 zoib_mod <- brm(formula = bf(
@@ -453,7 +437,6 @@ for (i in 1:nrow(post_zoib)) {
 
 summary(S_post_zoib)
 quantile(S_post_zoib, c(0.025, 0.5, 0.975))
-
 
 # Ordered Beta (quite a few divergence warnings if don't fix the 'cutone' parameter, because so are no '1s' to model - For more on this, see the code section below)
 ordBeta_mod <- ordbetareg(
@@ -480,8 +463,7 @@ for (i in 1:nrow(post_ordBeta)) {
 summary(S_post_ordBeta)
 quantile(S_post_ordBeta, c(0.025, 0.5, 0.975))
 
-
-
+####################################################################
 #### Comparing models with no 0s, no 1s, or neither 0s or 1s.
 
 ## Edit data first, recoding the 'hard-working' variable
@@ -507,7 +489,6 @@ hist(FL.sal0.work$hardworking_no1s)
 hist(FL.sal0.work$hardworking_no0s)
 hist(FL.sal0.work$hardworking_no0s1s)
 
-
 ### ZOIB models
 
 ## No 1s
@@ -524,7 +505,6 @@ zoib_mod_no1s <- brm(formula = bf(
 
 summary(zoib_mod_no1s)
 
-
 # Next, with the coi/one-inflated term fixed to 0 (meaning 'of all the 0s or 1s, there are no 1s')
 zoib_mod_no1s_fixed <- brm(formula = bf(
   hardworking_no1s ~ 1, 
@@ -536,7 +516,6 @@ zoib_mod_no1s_fixed <- brm(formula = bf(
   family = zero_one_inflated_beta())
 
 summary(zoib_mod_no1s_fixed)
-
 
 ## No 0s
 
@@ -564,7 +543,6 @@ zoib_mod_no0s_fixed <- brm(formula = bf(
 
 summary(zoib_mod_no0s_fixed)
 
-
 ## No 0s or 1s
 
 # First, trying to estimate all terms (this works, but is a lot of uncertainty in the zoi/zero-one-inflated and coi/one-inflated estimates)
@@ -590,7 +568,6 @@ zoib_mod_no0s1s_fixed <- brm(formula = bf(
   family = zero_one_inflated_beta())
 
 summary(zoib_mod_no0s1s_fixed)
-
 
 ### Ordered Beta models
 
@@ -619,7 +596,6 @@ ordBeta_mod_no1s_fixed <- ordbetareg(
 
 summary(ordBeta_mod_no1s_fixed)
 
-
 ## No 0s
 
 # First, if ignore that there are no 0s in the data (are lots divergent warnings, large r-hat values and tiny effective sample sizes, as cannot model the zero cut-point)
@@ -644,7 +620,6 @@ ordBeta_mod_no0s_fixed <- ordbetareg(
   chains = 4, iter = 2000, warmup = 1000, cores = 4, seed = 223344)
 
 summary(ordBeta_mod_no0s_fixed)
-
 
 ## No 0s or 1s
 
@@ -671,9 +646,6 @@ ordBeta_mod_no0s1s_fixed <- ordbetareg(
   chains = 4, iter = 2000, warmup = 1000, cores = 4, seed = 334455)
 
 summary(ordBeta_mod_no0s1s_fixed)
-
-
-
 
 ###############################################################################
 ### Describing and comparing multiple items
@@ -817,7 +789,6 @@ FLordBeta_SmithsS_multVar_top <- function(data, top = 8, cut_no0s = -10, cut_no1
   return(res_list)
 }
 
-
 # Summarise top 8 items
 top8 <- FLordBeta_SmithsS_multVar_top(data = FL.sal0, top = 8, seed = 54123)
 
@@ -829,7 +800,6 @@ FL_SmithsS_summariseEstimates <- function(data, quantiles = c(0, 0.025, 0.1, 0.2
 
 res <- FL_SmithsS_summariseEstimates(top8, quantiles = c(0.025, 0.5, 0.975))
 res
-
 
 ## Flower plot summary of results
 
@@ -857,11 +827,10 @@ par(mar = c(0, 0, 0, 0))
 FlowerPlot(S_uncert, "Good")
 
 # Save as PDF
-pdf(file = "./FL Uncertainty/flower_uncert.pdf", height = 6, width = 6)
+pdf(file = "flower_uncert.pdf", height = 6, width = 6)
 par(mar = c(0, 0, 0, 0))
 FlowerPlot(S_uncert, "Good")
 dev.off()
-
 
 ## Displaying full distribution, along with CIs
 
@@ -895,11 +864,11 @@ res_full
           panel.background = element_blank()))
 
 # Save as PDF
-pdf(file = "./FL Uncertainty/top8_dist.pdf", height = 8, width = 8)
+pdf(file = "top8_dist.pdf", height = 8, width = 8)
 p_dist
 dev.off()
 
-
+####################################################################
 ### Comparison between items
 
 ## First on the absolute difference scale 
@@ -924,7 +893,6 @@ summary(S_post_ordBeta_hardVsconscience)
 quantile(S_post_ordBeta_hardVsconscience, c(0.025, 0.5, 0.975))
 hist(S_post_ordBeta_hardVsconscience)
 
-
 ## And on the ratio difference scale
 
 # Hard working vs kind
@@ -946,8 +914,6 @@ for (i in 1:length(top8$hardworking)) {
 summary(S_post_ordBeta_hardVsconscience_per)
 quantile(S_post_ordBeta_hardVsconscience_per, c(0.025, 0.5, 0.975))
 hist(S_post_ordBeta_hardVsconscience_per)
-
-
 
 ## Write a function to automate this and present results in a distribution plot - Using list from function above
 FL_SmithsS_generateContrasts <- function(data, contrast = "absolute_diff") {
@@ -993,11 +959,9 @@ FL_SmithsS_generateContrasts <- function(data, contrast = "absolute_diff") {
   return(res_list)
 }
 
-
 ## On absolute difference scale
 res_diff <- FL_SmithsS_generateContrasts(data = top8, contrast = "absolute_diff")
 names(res_diff)
-
 
 # Convert list of posterior samples to data frame
 res_diff_full <- as.data.frame(res_diff)
@@ -1046,16 +1010,13 @@ res_diff_work %>%
           panel.background = element_blank()))
 
 # Save as PDF
-pdf(file = "./FL Uncertainty/top8_contrasts_hardworking.pdf", height = 8, width = 8)
+pdf(file = "top8_contrasts_hardworking.pdf", height = 8, width = 8)
 p_dist_diff
 dev.off()
-
-
 
 ## On ratio difference scale
 res_diff_ratio <- FL_SmithsS_generateContrasts(data = top8, contrast = "ratio_diff")
 names(res_diff_ratio)
-
 
 # Convert list of posterior samples to data frame
 res_diff_full <- as.data.frame(res_diff_ratio)
@@ -1103,11 +1064,9 @@ res_diff_work %>%
           panel.background = element_blank()))
 
 # Save as PDF
-pdf(file = "./FL Uncertainty/top8_contrasts_hardworking_ratio.pdf", height = 8, width = 8)
+pdf(file = "top8_contrasts_hardworking_ratio.pdf", height = 8, width = 8)
 p_dist_diff_ratio
 dev.off()
-
-
 
 ################################################################################
 ### Comparison across groups - Here, whether nominating the trait of 'kindness' differs by sex in Tyvans
@@ -1154,7 +1113,7 @@ legend("topright", legend = c("Female", "Male"),
        pch = 15, pt.cex = 2)
 
 # Save this plot
-pdf(file = "./FL Uncertainty/kindness_hist_bySex.pdf", height = 4, width = 6)
+pdf(file = "kindness_hist_bySex.pdf", height = 4, width = 6)
 
 par(mar = c(5, 5, 1, 2))
 
@@ -1168,8 +1127,6 @@ legend("topright", legend = c("Female", "Male"),
        pch = 15, pt.cex = 2)
 
 dev.off()
-
-
 
 #### First as a predictor in a regression context (no bootstrapping)
 
@@ -1222,7 +1179,6 @@ quantile(S_post_zoib_female, c(0.025, 0.5, 0.975))
 quantile(S_post_zoib_sexDiff, c(0.025, 0.5, 0.975))
 quantile(S_post_zoib_sexDiff_ratio, c(0.025, 0.5, 0.975))
 
-
 ### Ordered Beta model - Note that as males and females differ in probabilities of 0s and 1s, have to include sex as a predictor for these cut-points (and manually specify priors), else results are biased.
 sex_mod <- ordbetareg(
   formula = bf(kind ~ Sex, 
@@ -1273,7 +1229,6 @@ quantile(S_post_f, c(0.025, 0.5, 0.975))
 quantile(S_post_diff, c(0.025, 0.5, 0.975))
 quantile(S_post_ratio, c(0.025, 0.5, 0.975))
 
-
 #### Also in both groups separately (with bootstrapping)
 
 ### Bootstrapping
@@ -1292,7 +1247,6 @@ for (i in 1:1000) {
 # 95% percentile intervals
 quantile(S_boot.m, c(0.025, 0.5, 0.975))
 
-
 ## Model for females
 kind.female <- kind.sex[kind.sex$Sex == 1, ]
 
@@ -1306,7 +1260,6 @@ for (i in 1:1000) {
 
 # 95% percentile intervals
 quantile(S_boot.f, c(0.025, 0.5, 0.975))
-
 
 ## Difference between male and female Smith's S values
 S_boot.diff <- rep(NA, length(S_boot.m))
@@ -1323,8 +1276,6 @@ quantile(S_boot.diff, c(0.025, 0.5, 0.975))
 hist(S_boot.diff_ratio)
 summary(S_boot.diff_ratio)
 quantile(S_boot.diff_ratio, c(0.025, 0.5, 0.975))
-
-
 
 ### ZOIB model
 
@@ -1357,7 +1308,6 @@ hist(S_post_zoib.m)
 summary(S_post_zoib.m)
 quantile(S_post_zoib.m, c(0.025, 0.5, 0.975))
 
-
 ## Model for females
 kind.female <- kind.sex[kind.sex$Sex == 1, ]
 
@@ -1387,7 +1337,6 @@ hist(S_post_zoib.f)
 summary(S_post_zoib.f)
 quantile(S_post_zoib.f, c(0.025, 0.5, 0.975))
 
-
 ## Difference between male and female Smith's S values
 S_post_zoib.diff <- rep(NA, length(S_post_zoib.m))
 S_post_zoib.diff_ratio <- rep(NA, length(S_post_zoib.m))
@@ -1403,7 +1352,6 @@ quantile(S_post_zoib.diff, c(0.025, 0.5, 0.975))
 hist(S_post_zoib.diff_ratio)
 summary(S_post_zoib.diff_ratio)
 quantile(S_post_zoib.diff_ratio, c(0.025, 0.5, 0.975))
-
 
 ### Ordered Beta model
 
@@ -1436,7 +1384,6 @@ hist(S_post_ordBeta.m)
 summary(S_post_ordBeta.m)
 quantile(S_post_ordBeta.m, c(0.025, 0.5, 0.975))
 
-
 ## Model for females
 kind.female <- kind.sex[kind.sex$Sex == 1, ]
 
@@ -1466,7 +1413,6 @@ hist(S_post_ordBeta.f)
 summary(S_post_ordBeta.f)
 quantile(S_post_ordBeta.f, c(0.025, 0.5, 0.975))
 
-
 ## Difference between male and female Smith's S values
 S_post_ordBeta.diff <- rep(NA, length(S_post_ordBeta.m))
 S_post_ordBeta.diff_ratio <- rep(NA, length(S_post_ordBeta.m))
@@ -1483,14 +1429,8 @@ hist(S_post_ordBeta.diff_ratio)
 summary(S_post_ordBeta.diff_ratio)
 quantile(S_post_ordBeta.diff_ratio, c(0.025, 0.5, 0.975))
 
-
-
 ###########################################################################
 #### Example of applying methods above to free-list metrics other than Smith's S - First focusing on Jaccard's similarity and conceptual overlap (note that the data, code and example have been adapted here from Purzycki's 'Ethnographic Free-list Data' book, chapter 4 - For the original code, see https://github.com/bgpurzycki/free-list_QASS)
-
-## Install and load the 'eulerr' package
-#install.packages("eulerr")
-library(eulerr)
 
 ## Read in the data
 tyva <- read.delim("tyva_domains.txt", sep = "\t")
@@ -1499,10 +1439,9 @@ tyva <- read.delim("tyva_domains.txt", sep = "\t")
 head(tyva)
 str(tyva)
 
-
 ### For the example here, we are interested in the conceptual overlap of concerned regarding 'Morality' between big/moralising gods, local gods, and the police.
 
-## First, have to do quite a bit of data processing to know, for each person, whether they selected 'Morality' or not
+## First, have to do quite a bit of data processing to know, for each person, whether they listed 'Morality' or not
 
 # Presence matrix, saying whether each person listed each domain or not
 BGDbin <- FreeListTable(tyva, CODE = "BGD", Order = "Order", Subj = "CERCID", tableType = "PRESENCE")
@@ -1523,7 +1462,6 @@ tyva_morality <- binmerge2[lab0]
 # This is now a presence matrix, detailing whether each individual listed 'Morality' as a concern for each target.
 head(tyva_morality)
 summary(tyva_morality)
-
 
 ## Calculate Jaccard's similarity across the three domains
 
@@ -1546,8 +1484,6 @@ fit <- euler(c(Buddha = 1, Spirits = 1, Police = 1,
 fit$original.values # need to remove #'s we don't want in plot
 valuestoplot <- c(NA, NA, NA, .15, .69, .13, NA)
 plot(fit, fills = c("white", "darkgray", "lightgray"), quantities = valuestoplot)
-
-
 
 ####### Incorporating uncertainty into Jaccard's similarity
 
@@ -1578,15 +1514,12 @@ quantile(Jac_boot_BGvsLG, c(0.025, 0.5, 0.975))
 quantile(Jac_boot_BGvsPOL, c(0.025, 0.5, 0.975))
 quantile(Jac_boot_LGvsPOL, c(0.025, 0.5, 0.975))
 
-
 # Plot (with uncertainty values)
 fit <- euler(c(Buddha = 1, Spirits = 1, Police = 1, 
                "Buddha&Police" = .69, "Spirits&Police" = .13, "Buddha&Spirits" = .14))
 fit$original.values # need to remove #'s we don't want in plot
 valuestoplot <- c(NA, NA, NA, "0.14\n[0.06, 0.25]", "0.69\n[0.58, 0.80]", "0.13\n[0.05, 0.21]", NA)
 plot(fit, fills = c("white", "darkgray", "lightgray"), quantities = valuestoplot)
-
-
 
 ### More principled method: Multi-level Bayesian logistic regression
 
@@ -1596,7 +1529,6 @@ tyva_morality_long <- tyva_morality %>%
   mutate(domain = factor(domain, levels = c("BGDmor", "LGDmor", "PODmor"))) %>%
   arrange(Subject)
 tyva_morality_long
-
 
 # Logistic model, with domain as random-effect within participants to allow this relationship to vary by participant.
 
@@ -1619,7 +1551,6 @@ logit_mod <- brm(
 
 summary(logit_mod)
 
-
 ## One divergent transition noted, but no major warnings/issues and R-hat values seem okay (max = 1.01), but effective sample sizes for some of the random effects are a bit low (e.g., ~500), so, to be safe, will increase the number of sampling chains (from 1000 to 2000) and increase sampling depth (from default of 0.8 to 0.9)
 logit_mod2 <- brm(
   formula = bf(presence ~ domain + (domain | Subject)),
@@ -1636,12 +1567,10 @@ logit_mod2 <- brm(
 # This is looking better now, as no divergent transitions, all r-hat values are 1.00, and effective sample sizes are larger.
 summary(logit_mod2)
 
-
 ## Posterior predictions from this model
 df_pred <- tyva_morality_long[, c("Subject", "domain")]
 post_logit <- predict(logit_mod2, newdata = df_pred, summary = FALSE)
 head(post_logit)
-
 
 ## Calculate Jaccard's similarity for each posterior sample
 
@@ -1670,14 +1599,12 @@ quantile(Jac_logit_BGvsLG, c(0.025, 0.5, 0.975))
 quantile(Jac_logit_BGvsPOL, c(0.025, 0.5, 0.975))
 quantile(Jac_logit_LGvsPOL, c(0.025, 0.5, 0.975))
 
-
 # Plot (with uncertainty values)
 fit <- euler(c(Buddha = 1, Spirits = 1, Police = 1, 
                "Buddha&Police" = .60, "Spirits&Police" = .16, "Buddha&Spirits" = .18))
 fit$original.values # need to remove #'s we don't want in plot
 valuestoplot <- c(NA, NA, NA, "0.18\n[0.07, 0.31]", "0.60\n[0.46, 0.73]", "0.16\n[0.07, 0.26]", NA)
 plot(fit, fills = c("white", "darkgray", "lightgray"), quantities = valuestoplot)
-
 
 ### Comparison between results
 
@@ -1698,10 +1625,8 @@ quantile(Jac_logit_LGvsPOL, c(0.025, 0.5, 0.975)) # Logistic MLM
 
 # In this example, the logistic MLM performs okay, but bootstrapping does appear more accurate/less biased
 
-
-
-#################
-#### Further example of applying methods above to free-list metrics other than Smith's S - Now focusing on Cultural FST and the partitioning of variance between vs within societies (as above, note that the data, code and example have been adapted here from Purzycki's 'Ethnographic Free-list Data' book, chapter 4 - For the original code, see https://github.com/bgpurzycki/free-list_QASS)
+####################################################################
+#### Further example of applying methods above to free-list metrics other than Smith's S - Now focusing on Cultural FST and the partitioning of variance between vs within societies (as above, note that the data, code and example have been adapted here from Purzycki's 'Ethnographic Free-list Data' book, chapter 4 - For the original code, see https://github.com/bgpurzycki/free-list_QASS). Note that this code focuses on calculating cultural FST for binary traits, but could easily be extended for categorical or continuous data.
 
 ## Read in the data
 dat_fst <- read.csv("Cross-cultural_ERM1.csv", sep = ";")
@@ -1719,7 +1644,6 @@ dat_fst_pres <- dat_fst_pres[dat_fst_pres$freq != 0, ]
 # Keep just morality item
 dat_fst_pres <- dat_fst_pres[, c("Subject", "Group", "Morality")]
 head(dat_fst_pres)
-
 
 ## Function to calculate FST between two societies
 FST <- function(ni, nj, xi, xj){ 
@@ -1763,7 +1687,6 @@ tslab
 # Matrix of cultural FST estimates, based on this summary table
 fstmatrix(tslab)
 
-
 #### Methods to propagate uncertainty 
 
 ### First, bootstrapping
@@ -1800,7 +1723,6 @@ FST_boot_sampling <- function(data, group_var, target_var, iterations = 1000, se
 # Run this function to generate estimates of the numbers of individuals selecting 'Morality' in each society
 boot_samples <- FST_boot_sampling(data = dat_fst_pres, group_var = "Group", target_var = "Morality", iteration = 1000, seed = 123)
 str(boot_samples)
-
 
 ## Function to calculate cultural FST between all groups, across these bootstrapped samples
 fst_uncert <- function(dat_list, orig_data, group_var) {
@@ -1890,8 +1812,7 @@ fstmatrix_uncert <- function(dat_res, dat_list, est = "50%", lower_quant = "2.5%
 (fstmat <- fstmatrix_uncert(dat_res = fst_res, dat_list = boot_samples, 
                             est = "50%", lower_quant = "2.5%", upper_quant = "97.5%"))
 
-
-### Alternative method using Bayesian logistic regression model (using 'brms'), followed by sampling posterios predictions for each group
+### Alternative method using Bayesian logistic regression model (using 'brms'), followed by sampling posterior predictions for each group
 
 # Note the '0 +' notation to exclude the traditional intercept and include use 'index' notation to estimate intercept separately for all levels of 'Group' (not just relative to a reference)
 logit_moral <- brm(formula = bf(Morality ~ 0 + Group),
@@ -1941,7 +1862,6 @@ str(fst_logit)
 
 # Essentially the same results as with bootstrapping, but with wider uncertainty intervals
 fstmat
-
 
 ### Alternative method using group/society as a random effect
 logit_moral_re <- brm(formula = bf(Morality ~ 1 + (1 | Group)),
