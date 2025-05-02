@@ -2,7 +2,7 @@
 
 This repository contains four data files and one script file.
 
-Script 'FreeList_Uncertainty_CompanionCode.R' provides R code to replicate the analyses in the main paper (in addition to some extensions)
+Script 'FreeList_Uncertainty_CompanionCode.R' provides R code to replicate the analyses in the main paper (in addition to some extensions), as well as demonstrating how to apply some of the new AnthroTools functions to automate some of these processes.
 
 The four data files are:
 

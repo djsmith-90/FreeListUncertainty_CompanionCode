@@ -11,6 +11,7 @@ Sys.setenv(LANG = "en")
 #setwd("~/Dropbox/7. IR Lab/Major-Smith-Purzycki Shared/Projects/FreeListUncertainty")
 setwd("")
 
+## NOTE: AnthroTools was updated on 30th April 2025 to include new functions to model uncertainty in cultural salience - If you wish to use these new functions, make sure to update your version of AnthroTools!
 #install.packages("devtools")
 #library("devtools")
 #install_github('alastair-JL/AnthroTools')
@@ -51,6 +52,7 @@ FL.sal <- CalculateSalience(dat,
                             Order = "Order", 
                             CODE = "GC",
                             Salience = "GC.S")
+head(FL.sal)
 
 # Calculate Smith's S for each code
 (S <- SalienceByCode(FL.sal, 
@@ -66,6 +68,7 @@ FL.sal0 <- FreeListTable(FL.sal,
                          CODE = "GC",
                          Salience = "GC.S",
                          tableType = "MAX_SALIENCE")
+head(FL.sal0)
 
 ### To begin with, we'll use 'hard-working' as an example trait to demonstrate these methods
 
@@ -89,7 +92,7 @@ dev.off()
 
 ## Comparing different methods for propagating uncertainty in Smith's S estimates
 
-# Bootstrapping
+# Bootstrapping - Manual coding
 set.seed(76567)
 boot_samp <- list() # To store samples from each bootstrapping iteration
 S_boot <- rep(NA, 1000) # To store each Smith's S estimate
@@ -103,6 +106,11 @@ head(S_boot)
 
 # Smith's S 95% percentile interval
 quantile(S_boot, c(0.025, 0.5, 0.975))
+
+# Or, automate this bootstrapping using new AnthroTools function 'SalienceBoot()'
+S_boot2 <- SalienceBoot(FL.sal0, var_sel = "MANUAL", variables = "hardworking", 
+                        iterations = 1000, seed = 76567, IDs_first = TRUE)
+quantile(S_boot2$hardworking, c(0.025, 0.5, 0.975))
 
 # Linear model (default non-informative priors - 'student_t(3, 0, 2.5)' for both intercept and sigma terms, but with a lower bound of 0 for the sigma term)
 linear_mod <- brm(formula = bf(
@@ -144,7 +152,7 @@ for (i in 1:ncol(samples_linear_freq)) {
 
 quantile(S_linear_freq, c(0.025, 0.5, 0.975))
 
-# ZOIB model (default non-informative priors; 'student_t(3, 0, 2.5)' for mean and phi, 'logistic(0, 1)' for zoi and coi)
+# ZOIB model (default non-informative priors; 'student_t(3, 0, 2.5)' for mean and phi, 'logistic(0, 1)' for zoi and coi) - Manual coding
 zoib_mod <- brm(formula = bf(
   hardworking ~ 1, # Mean of beta distribution if between 0 and 1 (on logit scale)
   phi ~ 1, # Width of beta distribution if between 0 and 1 (on log scale)
@@ -170,7 +178,12 @@ for (i in 1:nrow(post_zoib)) {
 
 quantile(S_post_zoib, c(0.025, 0.5, 0.975))
 
-# Ordered Beta (default non-informative priors, where possible; 'student_t(3, 0, 2.5)' for mean and phi terms [note that if include a phi intercept model, have to manually specify a prior], flat for cut-points)
+# Or, automate this ZOIB model using new AnthroTools function 'SalienceZOIB()' (note that results are not exactly identical to the manual version above due to random variability)
+S_post_zoib2 <- SalienceZOIB(FL.sal0, var_sel = "MANUAL", variables = "hardworking", 
+                             seed = 5323, IDs_first = TRUE)
+quantile(S_post_zoib2$hardworking, c(0.025, 0.5, 0.975))
+
+# Ordered Beta (default non-informative priors, where possible; 'student_t(3, 0, 2.5)' for mean and phi terms [note that if include a phi intercept model, have to manually specify a prior], flat for cut-points) - Manual coding
 ordBeta_mod <- ordbetareg(
   formula = bf(hardworking ~ 1, # Mean of beta distribution if between 0 and 1 (on logit scale)
                phi ~ 1), # Width of beta distribution if between 0 and 1 (on log scale)
@@ -195,6 +208,11 @@ for (i in 1:nrow(post_ordBeta)) {
 }
 
 quantile(S_post_ordBeta, c(0.025, 0.5, 0.975))
+
+# Or, automate this ordered Beta model using new AnthroTools function 'SalienceOrdBeta()' (note that results are not exactly identical to the manual version above due to random variability)
+S_post_ordBeta2 <- SalienceOrdBeta(FL.sal0, var_sel = "MANUAL", variables = "hardworking", 
+                                   seed = 5543, IDs_first = TRUE)
+quantile(S_post_ordBeta2$hardworking, c(0.025, 0.5, 0.975))
 
 ## Plot 50 predicted densities on top of observed density (plus bootstrapping)
 
@@ -294,7 +312,7 @@ for (i in 1:nrow(post_linear_prior)) {
 quantile(S_post_linear_prior, c(0.025, 0.5, 0.975))
 quantile(S_post_linear, c(0.025, 0.5, 0.975))
 
-# ZOIB model (specify tighter priors, centered on 0 with an SD of 1.5 for logit terms [beta mean, zoi and coi], and 0 and SD of 1 for log terms [phi])
+# ZOIB model (specify tighter priors, centered on 0 with an SD of 1.5 for logit terms [beta mean, zoi and coi], and 0 and SD of 1 for log terms [phi]) - Manual coding
 get_prior(zoib_mod)
 
 zoib_mod_prior <- brm(formula = bf(
@@ -324,6 +342,15 @@ for (i in 1:nrow(post_zoib_prior)) {
 
 quantile(S_post_zoib_prior, c(0.025, 0.5, 0.975))
 quantile(S_post_zoib, c(0.025, 0.5, 0.975))
+
+# Or, automate this ZOIB model with specified priors using new AnthroTools function 'SalienceZOIB()' (note that results are not exactly identical to the manual version above due to random variability)
+S_post_zoib_prior2 <- SalienceZOIB(FL.sal0, var_sel = "MANUAL", variables = "hardworking", 
+                                   seed = 3235, IDs_first = TRUE,
+                                   priors = c(prior(normal(0, 1.5), class = Intercept),
+                                              prior(normal(0, 1), class = Intercept, dpar = phi),
+                                              prior(normal(0, 1.5), class = Intercept, dpar = zoi),
+                                              prior(normal(0, 1.5), class = Intercept, dpar = coi)))
+quantile(S_post_zoib_prior2$hardworking, c(0.025, 0.5, 0.975))
 
 # Ordered Beta (specify tighter priors, centered on 0 with an SD of 1.5 for logit terms [beta mean, and the two cut-points], and 0 and SD of 1 for log terms [phi])
 get_prior(ordBeta_mod)
@@ -355,6 +382,15 @@ for (i in 1:nrow(post_ordBeta_prior)) {
 quantile(S_post_ordBeta_prior, c(0.025, 0.5, 0.975))
 quantile(S_post_ordBeta, c(0.025, 0.5, 0.975))
 
+# Or, automate this ordered Beta model with specified priors using new AnthroTools function 'SalienceOrdBeta()' (note that results are not exactly identical to the manual version above due to random variability)
+S_post_ordBeta_prior2 <- SalienceOrdBeta(FL.sal0, var_sel = "MANUAL", variables = "hardworking", 
+                                         seed = 3455, IDs_first = TRUE,
+                                         priors = c(prior(normal(0, 1.5), class = Intercept),
+                                                    prior(normal(0, 1), class = Intercept, dpar = phi),
+                                                    prior(normal(0, 1), class = cutzero),
+                                                    prior(normal(0, 1), class = cutone)))
+quantile(S_post_ordBeta_prior2$hardworking, c(0.025, 0.5, 0.975))
+
 ####################################################################
 ### Comparing bootstrap, linear, ZOIB and ordered Beta in a variable with nearly 0 cultural salience (to demonstrate how linear models can give nonsensical results in edge cases like this)
 summary(FL.sal0)
@@ -364,7 +400,7 @@ hist(FL.sal0$talented)
 table(FL.sal0$talented)
 summary(FL.sal0$talented)
 
-# Bootstrap
+# Bootstrap - Manual coding
 set.seed(45678)
 boot_samp <- list()
 S_boot <- rep(NA, 1000)
@@ -375,6 +411,11 @@ for (i in 1:1000) {
 
 summary(S_boot)
 quantile(S_boot, c(0.025, 0.5, 0.975))
+
+# Or, automate this bootstrapping using new AnthroTools function 'SalienceBoot()'
+S_boot2 <- SalienceBoot(FL.sal0, var_sel = "MANUAL", variables = "talented", 
+                        iterations = 1000, seed = 45678, IDs_first = TRUE)
+quantile(S_boot2$talented, c(0.025, 0.5, 0.975))
 
 # Linear model
 linear_mod <- brm(formula = bf(
@@ -414,7 +455,7 @@ for (i in 1:ncol(samples_linear_freq)) {
 summary(S_linear_freq)
 quantile(S_linear_freq, c(0.025, 0.5, 0.975))
 
-# ZOIB model
+# ZOIB model - Manual coding
 zoib_mod <- brm(formula = bf(
   talented ~ 1, # Mean of beta distribution if between 0 and 1 (on logit scale)
   phi ~ 1, # Width of beta distribution if between 0 and 1 (on log scale)
@@ -438,7 +479,12 @@ for (i in 1:nrow(post_zoib)) {
 summary(S_post_zoib)
 quantile(S_post_zoib, c(0.025, 0.5, 0.975))
 
-# Ordered Beta (quite a few divergence warnings if don't fix the 'cutone' parameter, because so are no '1s' to model - For more on this, see the code section below)
+# Or, automate this ZOIB model using new AnthroTools function 'SalienceZOIB()' (note that results are not exactly identical to the manual version above due to random variability)
+S_post_zoib2 <- SalienceZOIB(FL.sal0, var_sel = "MANUAL", variables = "talented", 
+                             seed = 5323, IDs_first = TRUE)
+quantile(S_post_zoib2$talented, c(0.025, 0.5, 0.975))
+
+# Ordered Beta (quite a few divergence warnings if don't fix the 'cutone' parameter, because are no '1s' to model - For more on this, see the code section below)
 ordBeta_mod <- ordbetareg(
   formula = bf(talented ~ 1, 
                phi ~ 1, 
@@ -462,6 +508,11 @@ for (i in 1:nrow(post_ordBeta)) {
 
 summary(S_post_ordBeta)
 quantile(S_post_ordBeta, c(0.025, 0.5, 0.975))
+
+# Or, automate this ordered Beta model using new AnthroTools function 'SalienceOrdBeta()' (note that results are not exactly identical to the manual version above due to random variability)
+S_post_ordBeta2 <- SalienceOrdBeta(FL.sal0, var_sel = "MANUAL", variables = "talented", 
+                                   seed = 5442, IDs_first = TRUE)
+quantile(S_post_ordBeta2$talented, c(0.025, 0.5, 0.975))
 
 ####################################################################
 #### Comparing models with no 0s, no 1s, or neither 0s or 1s.
@@ -569,6 +620,11 @@ zoib_mod_no0s1s_fixed <- brm(formula = bf(
 
 summary(zoib_mod_no0s1s_fixed)
 
+## Note that, if using the new automated 'SalienceZOIB()' function in Anthrotools, these will automatically detect whether there are 0s and/or 1s in the data and adapt the ZOIB model accordingly
+SalienceZOIB(FL.sal0.work, var_sel = "MANUAL", variables = "hardworking_no1s", seed = 65678, IDs_first = TRUE)
+SalienceZOIB(FL.sal0.work, var_sel = "MANUAL", variables = "hardworking_no0s", seed = 5647, IDs_first = TRUE)
+SalienceZOIB(FL.sal0.work, var_sel = "MANUAL", variables = "hardworking_no0s1s", seed = 56478, IDs_first = TRUE)
+
 ### Ordered Beta models
 
 ## No 1s
@@ -647,10 +703,15 @@ ordBeta_mod_no0s1s_fixed <- ordbetareg(
 
 summary(ordBeta_mod_no0s1s_fixed)
 
+## Note that, if using the new automated 'SalienceOrdBeta()' function in Anthrotools, these will automatically detect whether there are 0s and/or 1s in the data and adapt the ordered Beta model accordingly - By default the 0 and 1 cut-points are fixed to -10 and 10, respectively, but this can be altered if desired
+SalienceOrdBeta(FL.sal0.work, var_sel = "MANUAL", variables = "hardworking_no1s", seed = 1122, IDs_first = TRUE)
+SalienceOrdBeta(FL.sal0.work, var_sel = "MANUAL", variables = "hardworking_no0s", seed = 2233, IDs_first = TRUE)
+SalienceOrdBeta(FL.sal0.work, var_sel = "MANUAL", variables = "hardworking_no0s1s", seed = 3344, IDs_first = TRUE)
+
 ###############################################################################
 ### Describing and comparing multiple items
 
-## Ordered Beta function for multiple variables (based on top X Smith's S salience values).
+## Ordered Beta function for multiple variables (based on top X Smith's S salience values) - Note that much of this functionality has now been integrated and expanded into the 'SalienceOrdBeta()' function (see below)
 FLordBeta_SmithsS_multVar_top <- function(data, top = 8, cut_no0s = -10, cut_no1s = 10, print_model = TRUE, seed, chains = 4, iterations = 2000, warmup = 1000, cores = 4, IDs_first = TRUE) {
   
   # Make sure that 'brms' and 'ordbetareg' packages are loaded
@@ -792,6 +853,9 @@ FLordBeta_SmithsS_multVar_top <- function(data, top = 8, cut_no0s = -10, cut_no1
 # Summarise top 8 items
 top8 <- FLordBeta_SmithsS_multVar_top(data = FL.sal0, top = 8, seed = 54123)
 
+# Or, automate this using new AnthroTools function 'SalienceOrdBeta()'
+top8b <- SalienceOrdBeta(FL.sal0, var_sel = "TOP", top = 8, seed = 54123, IDs_first = TRUE)
+
 # Summarise (first, create function to loop over stored results and extract credible intervals)
 FL_SmithsS_summariseEstimates <- function(data, quantiles = c(0, 0.025, 0.1, 0.25, 0.5, 0.75, 0.9, 0.975, 1)) {
   res <- round(t(as.data.frame(lapply(data, quantile, probs = quantiles))), 2)
@@ -800,6 +864,9 @@ FL_SmithsS_summariseEstimates <- function(data, quantiles = c(0, 0.025, 0.1, 0.2
 
 res <- FL_SmithsS_summariseEstimates(top8, quantiles = c(0.025, 0.5, 0.975))
 res
+
+# Or, if using the new AnthroTools function 'SalienceEstimateSummary()'
+SalienceEstimateSummary(top8, quantiles = c(0.025, 0.5, 0.975))
 
 ## Flower plot summary of results
 
@@ -831,6 +898,9 @@ pdf(file = "flower_uncert.pdf", height = 6, width = 6)
 par(mar = c(0, 0, 0, 0))
 FlowerPlot(S_uncert, "Good")
 dev.off()
+
+# Or, automate this using the new AnthroTools function 'FlowerPlotIntervals()'
+FlowerPlotIntervals(SmithsS = S, S_uncert = res, label = "Good")
 
 ## Displaying full distribution, along with CIs
 
@@ -868,6 +938,9 @@ pdf(file = "top8_dist.pdf", height = 8, width = 8)
 p_dist
 dev.off()
 
+# Or, automate this using the new AnthroTools function 'SalienceEstimatePlot()'
+SalienceEstimatePlot(top8, order = "high-low")
+
 ####################################################################
 ### Comparison between items
 
@@ -893,6 +966,13 @@ summary(S_post_ordBeta_hardVsconscience)
 quantile(S_post_ordBeta_hardVsconscience, c(0.025, 0.5, 0.975))
 hist(S_post_ordBeta_hardVsconscience)
 
+# Or, automate this using the new AnthroTools function 'SalienceContrastGen()'
+contrasts <- SalienceContrastGen(top8, contrast = "absolute_diff")
+names(contrasts)
+summary(contrasts[["hardworkingX_Xgood conscience"]])
+quantile(contrasts[["hardworkingX_Xgood conscience"]], c(0.025, 0.5, 0.975))
+hist(contrasts[["hardworkingX_Xgood conscience"]])
+
 ## And on the ratio difference scale
 
 # Hard working vs kind
@@ -915,7 +995,14 @@ summary(S_post_ordBeta_hardVsconscience_per)
 quantile(S_post_ordBeta_hardVsconscience_per, c(0.025, 0.5, 0.975))
 hist(S_post_ordBeta_hardVsconscience_per)
 
-## Write a function to automate this and present results in a distribution plot - Using list from function above
+# Or, automate this using the new AnthroTools function 'SalienceContrastGen()'
+contrasts_ratio <- SalienceContrastGen(top8, contrast = "ratio_diff")
+names(contrasts_ratio)
+summary(contrasts_ratio[["hardworkingX_Xgood conscience"]])
+quantile(contrasts_ratio[["hardworkingX_Xgood conscience"]], c(0.025, 0.5, 0.975))
+hist(contrasts_ratio[["hardworkingX_Xgood conscience"]])
+
+## Write a function to automate this and present results in a distribution plot - Using list from function above. Note that this is an older version of the new AnthroTools function 'SalienceContrastGen()'
 FL_SmithsS_generateContrasts <- function(data, contrast = "absolute_diff") {
   
   # List to store results in
@@ -993,6 +1080,10 @@ res_diff_work %>%
             lci_12.5 = quantile(S, 0.125), uci_87.5 = quantile(S, 0.875),
             lci_25 = quantile(S, 0.25), uci_75 = quantile(S, 0.75))
 
+# Or, automate this using the new AnthroTools function 'SalienceContrastSummary()'
+(res_contrasts <- SalienceContrastSummary(contrasts, target = "hardworking",
+                                         quantiles = c(0.5, 0.025, 0.975, 0.125, 0.875, 0.25, 0.75)))
+
 # Plot of results
 (p_dist_diff <- ggplot(res_diff_work, aes(x = S, y = forcats::fct_rev(contrast_level), 
                                           fill = forcats::fct_rev(contrast_level))) +
@@ -1013,6 +1104,9 @@ res_diff_work %>%
 pdf(file = "top8_contrasts_hardworking.pdf", height = 8, width = 8)
 p_dist_diff
 dev.off()
+
+# Or, automate this using the new AnthroTools function 'SalienceContrastPlot()'
+SalienceContrastPlot(contrasts, target = "hardworking")
 
 ## On ratio difference scale
 res_diff_ratio <- FL_SmithsS_generateContrasts(data = top8, contrast = "ratio_diff")
@@ -1046,6 +1140,10 @@ res_diff_work %>%
   group_by(contrast_level) %>%
   summarise(median = median(S), lci_2.5 = quantile(S, 0.025), uci_97.5 = quantile(S, 0.975))
 
+# Or, automate this using the new AnthroTools function 'SalienceContrastSummary()'
+(res_contrasts_ratio <- SalienceContrastSummary(contrasts_ratio, target = "hardworking",
+                                                quantiles = c(0.5, 0.025, 0.975)))
+
 # Plot of results
 (p_dist_diff_ratio <- ggplot(res_diff_work, aes(x = S, y = forcats::fct_rev(contrast_level), 
                                           fill = forcats::fct_rev(contrast_level))) +
@@ -1068,8 +1166,11 @@ pdf(file = "top8_contrasts_hardworking_ratio.pdf", height = 8, width = 8)
 p_dist_diff_ratio
 dev.off()
 
+# Or, automate this using the new AnthroTools function 'SalienceContrastPlot()'
+SalienceContrastPlot(contrasts_ratio, target = "hardworking")
+
 ################################################################################
-### Comparison across groups - Here, whether nominating the trait of 'kindness' differs by sex in Tyvans
+### Comparison across groups - Here, whether nominating the trait of 'kindness' differs by sex in Tyvans 
 
 ## Prepare the data
 
@@ -1128,7 +1229,7 @@ legend("topright", legend = c("Female", "Male"),
 
 dev.off()
 
-#### First as a predictor in a regression context (no bootstrapping)
+#### First as a predictor in a regression context (no bootstrapping) - Note that the coding of these analyses are all manual, as automated functions for AnthroTools have not [yet] been created for this kind of analysis (although the above functions can be used if analysing groups separately)
 
 ### ZOIB model
 
@@ -1229,7 +1330,7 @@ quantile(S_post_f, c(0.025, 0.5, 0.975))
 quantile(S_post_diff, c(0.025, 0.5, 0.975))
 quantile(S_post_ratio, c(0.025, 0.5, 0.975))
 
-#### Also in both groups separately (with bootstrapping)
+#### Also in both groups separately (with bootstrapping) - Note that here we *can* use the new automated AnthroTools functions here
 
 ### Bootstrapping
 
@@ -1247,6 +1348,11 @@ for (i in 1:1000) {
 # 95% percentile intervals
 quantile(S_boot.m, c(0.025, 0.5, 0.975))
 
+# Or, automate this using the new AnthroTools function 'SalienceBoot()'
+S_boot.m2 <- SalienceBoot(kind.male, var_sel = "MANUAL", variables = "kind", 
+                          iterations = 1000, seed = 6543, IDs_first = TRUE)
+quantile(S_boot.m2$kind, c(0.025, 0.5, 0.975))
+
 ## Model for females
 kind.female <- kind.sex[kind.sex$Sex == 1, ]
 
@@ -1260,6 +1366,11 @@ for (i in 1:1000) {
 
 # 95% percentile intervals
 quantile(S_boot.f, c(0.025, 0.5, 0.975))
+
+# Or, automate this using the new AnthroTools function 'SalienceBoot()'
+S_boot.f2 <- SalienceBoot(kind.female, var_sel = "MANUAL", variables = "kind", 
+                          iterations = 1000, seed = 3456, IDs_first = TRUE)
+quantile(S_boot.f2$kind, c(0.025, 0.5, 0.975))
 
 ## Difference between male and female Smith's S values
 S_boot.diff <- rep(NA, length(S_boot.m))
@@ -1308,6 +1419,11 @@ hist(S_post_zoib.m)
 summary(S_post_zoib.m)
 quantile(S_post_zoib.m, c(0.025, 0.5, 0.975))
 
+# Or, automate this using the new AnthroTools function 'SalienceZOIB()' (note that results are not exactly identical to the manual version above due to random variability)
+S_post_zoib.m2 <- SalienceZOIB(kind.male, var_sel = "MANUAL", variables = "kind", 
+                          seed = 2357, IDs_first = TRUE)
+quantile(S_post_zoib.m2$kind, c(0.025, 0.5, 0.975))
+
 ## Model for females
 kind.female <- kind.sex[kind.sex$Sex == 1, ]
 
@@ -1336,6 +1452,11 @@ for (i in 1:nrow(post_zoib.f)) {
 hist(S_post_zoib.f)
 summary(S_post_zoib.f)
 quantile(S_post_zoib.f, c(0.025, 0.5, 0.975))
+
+# Or, automate this using the new AnthroTools function 'SalienceZOIB()' (note that results are not exactly identical to the manual version above due to random variability)
+S_post_zoib.f2 <- SalienceZOIB(kind.female, var_sel = "MANUAL", variables = "kind", 
+                          seed = 863, IDs_first = TRUE)
+quantile(S_post_zoib.f2$kind, c(0.025, 0.5, 0.975))
 
 ## Difference between male and female Smith's S values
 S_post_zoib.diff <- rep(NA, length(S_post_zoib.m))
@@ -1384,6 +1505,11 @@ hist(S_post_ordBeta.m)
 summary(S_post_ordBeta.m)
 quantile(S_post_ordBeta.m, c(0.025, 0.5, 0.975))
 
+# Or, automate this using the new AnthroTools function 'SalienceOrdBeta()' (note that results are not exactly identical to the manual version above due to random variability)
+S_post_ordBeta.m2 <- SalienceOrdBeta(kind.male, var_sel = "MANUAL", variables = "kind", 
+                                     seed = 8568, IDs_first = TRUE)
+quantile(S_post_ordBeta.m2$kind, c(0.025, 0.5, 0.975))
+
 ## Model for females
 kind.female <- kind.sex[kind.sex$Sex == 1, ]
 
@@ -1412,6 +1538,11 @@ for (i in 1:nrow(post_ordBeta.f)) {
 hist(S_post_ordBeta.f)
 summary(S_post_ordBeta.f)
 quantile(S_post_ordBeta.f, c(0.025, 0.5, 0.975))
+
+# Or, automate this using the new AnthroTools function 'SalienceOrdBeta()' (note that results are not exactly identical to the manual version above due to random variability)
+S_post_ordBeta.f2 <- SalienceOrdBeta(kind.female, var_sel = "MANUAL", variables = "kind", 
+                                  seed = 6445, IDs_first = TRUE)
+quantile(S_post_ordBeta.f2$kind, c(0.025, 0.5, 0.975))
 
 ## Difference between male and female Smith's S values
 S_post_ordBeta.diff <- rep(NA, length(S_post_ordBeta.m))
