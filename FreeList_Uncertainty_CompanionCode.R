@@ -1170,6 +1170,39 @@ dev.off()
 SalienceContrastPlot(contrasts_ratio, target = "hardworking")
 
 ################################################################################
+### Repeating above comparison of multiple items, now using bootstrapping and ZOIB
+
+## Bootstrapping first
+
+# Smith's S for top 8 items
+top8boot <- SalienceBoot(FL.sal0, var_sel = "TOP", top = 8, seed = 65456, IDs_first = TRUE)
+
+# Summarise estimates
+SalienceEstimateSummary(top8boot, quantiles = c(0.5, 0.025, 0.975))
+
+# Contrasts between items
+contrasts_boot <- SalienceContrastGen(top8boot, contrast = "absolute_diff")
+
+# Summary of contrasts, with 'hardworking' as baseline
+SalienceContrastSummary(contrasts_boot, target = "hardworking",quantiles = c(0.5, 0.025, 0.975))
+
+
+## Now for ZOIB
+
+# Smith's S for top 8 items
+top8zoib <- SalienceZOIB(FL.sal0, var_sel = "TOP", top = 8, seed = 34567, IDs_first = TRUE)
+
+# Summarise estimates
+SalienceEstimateSummary(top8zoib, quantiles = c(0.5, 0.025, 0.975))
+
+# Contrasts between items
+contrasts_zoib <- SalienceContrastGen(top8zoib, contrast = "absolute_diff")
+
+# Summary of contrasts, with 'hardworking' as baseline
+SalienceContrastSummary(contrasts_zoib, target = "hardworking", quantiles = c(0.5, 0.025, 0.975))
+
+
+################################################################################
 ### Comparison across groups - Here, whether nominating the trait of 'kindness' differs by sex in Tyvans 
 
 ## Prepare the data
